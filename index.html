@@ -1,0 +1,1293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rowable</title>
+<meta name="description" content="Wind, tide and rowability assessment for the Seekonk River, Providence RI">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f4f6f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1413" media="(prefers-color-scheme: dark)">
+<style>
+  :root {
+    --bg: #f4f6f5;
+    --panel: #ffffff;
+    --panel-2: #eef1f0;
+    --ink: #12201d;
+    --ink-2: #4a5f5a;
+    --ink-3: #7c8f8a;
+    --line: #d9e0dd;
+    --accent: #0f6f5c;
+    --water: #7fb4c9;
+    --water-fill: rgba(127, 180, 201, 0.28);
+    --excellent: #12836a;
+    --good: #4f9a4a;
+    --fair: #c08c1e;
+    --marginal: #d2701f;
+    --rough: #c14526;
+    --nogo: #9b2d20;
+    --night: rgba(18, 32, 29, 0.06);
+    --shadow: 0 1px 2px rgba(18,32,29,.06), 0 8px 24px rgba(18,32,29,.05);
+    --radius: 14px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  }
+  :root:not([data-theme="light"]) {
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1413;
+      --panel: #151f1d;
+      --panel-2: #1c2926;
+      --ink: #e8efec;
+      --ink-2: #a2b5b0;
+      --ink-3: #71857f;
+      --line: #26332f;
+      --accent: #4ecfb0;
+      --water: #5b93ad;
+      --water-fill: rgba(91, 147, 173, 0.22);
+      --excellent: #35c5a2;
+      --good: #7fc060;
+      --fair: #e0b040;
+      --marginal: #ef8f43;
+      --rough: #ea6a48;
+      --nogo: #e05a48;
+      --night: rgba(255, 255, 255, 0.045);
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1413;
+    --panel: #151f1d;
+    --panel-2: #1c2926;
+    --ink: #e8efec;
+    --ink-2: #a2b5b0;
+    --ink-3: #71857f;
+    --line: #26332f;
+    --accent: #4ecfb0;
+    --water: #5b93ad;
+    --water-fill: rgba(91, 147, 173, 0.22);
+    --excellent: #35c5a2;
+    --good: #7fc060;
+    --fair: #e0b040;
+    --marginal: #ef8f43;
+    --rough: #ea6a48;
+    --nogo: #e05a48;
+    --night: rgba(255, 255, 255, 0.045);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    padding: 0;
+  }
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding-inline: 16px;
+    padding-block: 20px 56px;
+  }
+
+  /* ---------- header ---------- */
+  header.top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px 14px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  h1 {
+    font-size: 1.32rem;
+    line-height: 1.15;
+    margin: 0;
+    letter-spacing: -0.02em;
+    font-weight: 650;
+  }
+  h1 .dot { color: var(--ink-3); font-weight: 400; }
+  .sub {
+    color: var(--ink-3);
+    font-size: 0.8rem;
+    margin-top: 4px;
+  }
+  .hdr-actions { display: flex; gap: 8px; align-items: center; flex: none; }
+  .unit {
+    display: flex; flex: none;
+    border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; background: var(--panel);
+  }
+  .unit button {
+    font: inherit; font-size: .8rem; padding: 9px 11px; min-height: 40px;
+    border: 0; background: none; color: var(--ink-3); cursor: pointer;
+  }
+  .unit button + button { border-left: 1px solid var(--line); }
+  .unit button[aria-pressed="true"] { background: var(--panel-2); color: var(--ink); font-weight: 600; }
+  .unit button:hover:not([aria-pressed="true"]) { color: var(--ink); }
+  button.refresh {
+    flex: none;
+    background: var(--panel);
+    color: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 13px;
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+    min-height: 40px;
+  }
+  button.refresh:hover { color: var(--ink); border-color: var(--ink-3); }
+  button.refresh[aria-busy="true"] { opacity: .55; cursor: progress; }
+
+  /* ---------- cards ---------- */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-3);
+    margin: 0 0 14px;
+    font-weight: 600;
+  }
+
+  /* ---------- assessment card (shared: "Right now" + selected hour) ---------- */
+  .assess { border-left: 4px solid var(--band, var(--ink-3)); }
+  .assess-head {
+    display: flex; align-items: baseline; gap: 10px;
+    flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .assess-head h2 { margin: 0; }
+  .assess-when { font-size: .78rem; color: var(--ink-3); }
+  .assess-body { margin-top: 16px; }
+  .assess-body .fetchwrap { margin-top: 16px; }
+  .breakdown {
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: .82rem; color: var(--ink-2);
+  }
+  .breakdown b { color: var(--ink); font-weight: 600; }
+  .breakdown .arrow { color: var(--ink-3); padding: 0 2px; }
+  .hero-top {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .verdict {
+    font-size: 2.1rem;
+    font-weight: 680;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    color: var(--band);
+  }
+  .score {
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    color: var(--ink-3);
+    padding: 4px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .reason {
+    margin-top: 12px;
+    font-size: 1.02rem;
+    color: var(--ink);
+    max-width: 58ch;
+  }
+
+
+  /* ---------- alerts ---------- */
+  .alerts { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
+  .alert {
+    display: flex; gap: 9px; align-items: baseline;
+    font-size: 0.87rem;
+    padding: 9px 11px;
+    border-radius: 9px;
+    background: var(--panel-2);
+    color: var(--ink);
+  }
+  .alert.stop { background: color-mix(in srgb, var(--nogo) 15%, var(--panel)); }
+  .alert .tag {
+    font-family: var(--mono); font-size: .68rem; text-transform: uppercase;
+    letter-spacing: .06em; flex: none; padding-top: 2px;
+  }
+  .alert.stop .tag { color: var(--nogo); }
+  .alert.warn .tag { color: var(--marginal); }
+  .alert.info .tag { color: var(--ink-3); }
+
+  /* ---------- factors ---------- */
+  .factors {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .factor { background: var(--panel); padding: 13px 14px; }
+  .factor .k {
+    font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--ink-3); margin-bottom: 5px;
+  }
+  .factor .v { font-size: 1.02rem; font-weight: 560; letter-spacing: -.01em; }
+  .factor .n { font-size: .78rem; color: var(--ink-2); margin-top: 3px; }
+  .factor .n.flagged { color: var(--marginal); }
+
+  /* ---------- fetch diagram ---------- */
+  .fetchwrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .fetchwrap svg { flex: none; }
+  .fetchwrap .caption { font-size: .87rem; color: var(--ink-2); max-width: 34ch; }
+  .fetchwrap .caption b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- reality check ---------- */
+  .rc { display: flex; gap: 22px; flex-wrap: wrap; }
+  .rc > div { min-width: 120px; }
+  .rc .k { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+  .rc .v { font-size: 1rem; font-weight: 560; margin-top: 4px; }
+  .rc .v.dim { color: var(--ink-3); font-weight: 400; }
+
+  /* ---------- hour strip ---------- */
+  .scroller { overflow-x: auto; margin: 0 -18px; padding: 0 18px; }
+  .days { display: flex; gap: 20px; }
+  .day { flex: none; }
+  .day-head {
+    display: flex; align-items: baseline; gap: 8px;
+    margin-bottom: 9px; white-space: nowrap;
+  }
+  .day-head .name { font-size: .84rem; font-weight: 600; }
+  .day-head .best { font-size: .76rem; color: var(--ink-3); }
+  .hours { display: flex; gap: 2px; align-items: flex-end; }
+  .hour {
+    width: 20px;
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    border-radius: 5px;
+  }
+  .hour:hover .bar, .hour[aria-selected="true"] .bar { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .hour .bar {
+    width: 100%;
+    height: 74px;
+    border-radius: 4px;
+    background: var(--night);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+  }
+  .hour .fill { width: 100%; border-radius: 4px 4px 0 0; }
+  .hour .lbl {
+    font-family: var(--mono); font-size: .58rem; color: var(--ink-3);
+    height: 1em;
+  }
+  /* The fill is a child, so an inset shadow on .bar was painted over and the
+     dark hours read identically to daylight. Mute the fill itself instead. */
+  .hour.night .bar {
+    background-image: repeating-linear-gradient(45deg,
+      transparent 0 3px, var(--night) 3px 6px);
+  }
+  .hour.night .fill { opacity: .42; }
+  .hour.night .lbl { opacity: .5; }
+  .tidecurve { display: block; margin-top: 5px; }
+  .legend {
+    display: flex; gap: 13px; flex-wrap: wrap;
+    margin-top: 16px; font-size: .74rem; color: var(--ink-3);
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: block; }
+
+  /* ---------- selected-hour panel ----------
+     Renders the same component as the card at the top of the page, so it gets
+     the same left accent and the same internal spacing. */
+  .detail {
+    margin-top: 18px; padding: 16px 18px;
+    background: var(--panel-2); border-radius: 10px;
+    border-left: 4px solid var(--band, var(--ink-3));
+  }
+  .detail .verdict { font-size: 1.6rem; }
+  .detail .reason { font-size: .95rem; }
+  .detail .factor { background: var(--panel-2); }
+
+  /* ---------- how it works ---------- */
+  details.how { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 24px; }
+  details.how summary {
+    cursor: pointer; font-size: .84rem; color: var(--ink-2);
+    font-weight: 560; min-height: 32px; display: flex; align-items: center;
+  }
+  details.how summary:hover { color: var(--ink); }
+  details.how .body { font-size: .86rem; color: var(--ink-2); margin-top: 12px; }
+  details.how h3 {
+    font-size: .74rem; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--ink-3); margin: 18px 0 7px;
+  }
+  details.how p { margin: 0 0 9px; max-width: 66ch; }
+  details.how code {
+    font-family: var(--mono); font-size: .84em;
+    background: var(--panel-2); padding: 1px 4px; border-radius: 4px;
+  }
+  .tbl { width: 100%; border-collapse: collapse; font-size: .84rem; margin-top: 6px; }
+  .tbl th, .tbl td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid var(--line); }
+  .tbl th { color: var(--ink-3); font-weight: 560; font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; }
+  .tbl td:first-child { font-family: var(--mono); white-space: nowrap; }
+
+  footer.src {
+    margin-top: 22px; font-size: .76rem; color: var(--ink-3);
+    line-height: 1.7;
+  }
+  footer.src a { color: var(--ink-2); }
+
+  .msg { padding: 26px 18px; text-align: center; color: var(--ink-3); font-size: .92rem; }
+  .msg.err { color: var(--nogo); }
+  .skel { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .45 } 50% { opacity: .85 } }
+
+  @media (max-width: 560px) {
+    .verdict { font-size: 1.8rem; }
+    .card { padding: 15px; }
+    .scroller { margin: 0 -15px; padding: 0 15px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Rowable <span class="dot">·</span> Seekonk River</h1>
+      <div class="sub" id="sub">Narragansett Boat Club reach → Pawtucket · loading…</div>
+    </div>
+    <div class="hdr-actions">
+      <div class="unit" id="unit" role="group" aria-label="Wind speed unit">
+        <button type="button" data-unit="mph" aria-pressed="true">mph</button>
+        <button type="button" data-unit="kn" aria-pressed="false">kn</button>
+      </div>
+      <button class="refresh" id="refresh" type="button">Refresh</button>
+    </div>
+  </header>
+  <div id="app"><div class="msg skel">Fetching wind, tide and river conditions…</div></div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================================
+ * CONFIG — every tunable lives here.
+ *
+ * The whole point of this app is that it is opinionated about the Seekonk
+ * specifically. If a score disagrees with water you actually rowed on, retune
+ * these numbers, not the code below.
+ * ==========================================================================*/
+const CONFIG = {
+  // --- geography -----------------------------------------------------------
+  // Launch is Narragansett Boat Club, Gano St. The rowable reach runs from the
+  // Henderson Bridge north to Pawtucket: essentially due north, ~4km of fetch.
+  launch:      { lat: 41.832, lon: -71.383 },
+  forecastPt:  { lat: 41.845, lon: -71.379 },   // midpoint of the reach
+  axisDeg:     10,                              // river bearing, 010/190
+  reachKm:     4.0,
+  widthM:      330,
+
+  // --- NOAA stations -------------------------------------------------------
+  // 8453433 "Rumford, Seekonk River" sits ON the reach, but it is a
+  // SUBORDINATE station: tide predictions only, no live sensors. Live wind and
+  // water temperature therefore come from 8454000 (Providence), ~4km downriver.
+  tideStation: { id: "8453433", name: "Rumford, Seekonk River" },
+  obsStation:  { id: "8454000", name: "Providence" },
+
+  // --- model weights -------------------------------------------------------
+  fetchBoost:      0.35,  // along-axis wind is treated as 35% stronger
+  gustWeight:      0.40,  // fraction of gust-over-sustained spread charged
+  // Wind-against-tide and the fetch boost both peak on an along-axis wind, so
+  // a large penalty here double-charges the same geometry. Kept deliberately
+  // modest: it should nudge a Fair hour to Marginal, not to Don't-go.
+  windTideMaxKn:   4.5,   // max knots-equivalent added by wind against tide
+  windTideRefKn:   12.0,  // wind speed at which the w/t penalty is fully armed
+
+  // --- score curve: [effective knots, score at that point] -----------------
+  // Tuned for a SINGLE or DOUBLE, the most wind-sensitive case. NOTE these are
+  // EFFECTIVE knots — already inflated by fetch alignment, gustiness and tide —
+  // so they sit above the real-wind figures a rower has a feel for. Calibrated
+  // so that a real 10 kn straight down the reach (eff ~13.5) lands in Fair:
+  // choppy, unpleasant, entirely rowable. Not Don't-go.
+  curve: [[0,100],[6,90],[10,75],[14,58],[19,38],[24,16],[32,0]],
+  bands: [
+    { min: 85, label: "Excellent", key: "excellent", gloss: "flat water"          },
+    { min: 70, label: "Good",      key: "good",      gloss: "comfortable"         },
+    { min: 50, label: "Fair",      key: "fair",      gloss: "manageable chop"     },
+    { min: 30, label: "Marginal",  key: "marginal",  gloss: "experienced only"    },
+    { min: 15, label: "Rough",     key: "rough",     gloss: "not in a small boat" },
+    { min: -1, label: "Don't go",  key: "nogo",      gloss: "stay in"             },
+  ],
+
+  // --- hard limits and flags ----------------------------------------------
+  gustHardStopKn:  25,    // gusts above this: no score can save it
+  capeThreshold:   1000,  // J/kg, with precip prob, = storm risk
+  popThreshold:    50,    // %
+  fogVisM:         1600,  // ~1 mile
+  coldSumF:        100,   // air + water below this = hypothermia rule of thumb
+  coldSumSevereF:  90,
+  coldCapScore:    72,    // best a sub-100°F day can score, however flat
+  lowTideFt:       1.0,   // MLLW, below which the upriver flats get thin
+  lowTidePenalty:  5,
+  daylightPadMin:  30,    // rowable this many minutes either side of sun
+  windowHours:     2,     // length of the "best window" block
+  forecastDays:    4,     // 4 gets us sun times for the tail of a 72h strip
+  horizonHours:    72,
+};
+
+const WMO_STORM = new Set([95, 96, 99]);
+const WMO_HEAVY = new Set([65, 67, 82, 75, 86]);
+
+/* ============================================================================
+ * SMALL UTILITIES
+ * ==========================================================================*/
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const rad = d => d * Math.PI / 180;
+
+/* ---------------------------------------------------------------------------
+ * DISPLAY UNITS
+ *
+ * Everything in the model — CONFIG's thresholds, the score curve, effWind, the
+ * wind-against-tide penalty — is in KNOTS, and Open-Meteo is asked for knots.
+ * The unit below is purely a display concern, which is why switching it only
+ * needs a re-derive from cached data and never a refetch.
+ * -------------------------------------------------------------------------*/
+const UNITS = {
+  mph: { label: "mph", per: 1.15078 },
+  kn:  { label: "kn",  per: 1 },
+};
+const UNIT_KEY = "rowable.unit";
+let UNIT = "mph";   // default: mph is what most people here have a feel for
+try { if (UNITS[localStorage.getItem(UNIT_KEY)]) UNIT = localStorage.getItem(UNIT_KEY); } catch {}
+
+/** Format a knot value in the display unit: "8 mph". `bare` drops the label. */
+function spd(kn, { decimals = 0, bare = false } = {}) {
+  const n = (kn * UNITS[UNIT].per).toFixed(decimals);
+  return bare ? n : `${n} ${UNITS[UNIT].label}`;
+}
+const spdUnit = () => UNITS[UNIT].label;
+
+/** Compass point for a bearing in degrees. */
+function compass(deg) {
+  const pts = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  return pts[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
+}
+
+/**
+ * Parse a NOAA timestamp ("2026-09-10 08:02", already in station local time)
+ * or an Open-Meteo one ("2026-09-10T08:02"). Both are wall-clock local with no
+ * zone, so we build the Date from parts and let the browser apply its own
+ * offset. That is correct here only because the browser is assumed to be in
+ * the same timezone as the river; we surface the timezone in the footer.
+ */
+function parseLocal(s) {
+  const m = String(s).trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+}
+
+const fmtTime = d => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const fmtHour = d => d.toLocaleTimeString([], { hour: "numeric" }).replace(/\s?[AP]M/i, "");
+const dayKey  = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+/**
+ * Compact time range: "6–8 PM", "9–11 AM", "11 AM–1 PM".
+ * Drops ":00" and shares the meridiem when both ends agree.
+ */
+function fmtRange(a, b) {
+  const bare = d => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+                      .replace(":00", "");
+  const mer = d => (bare(d).match(/[AP]M$/i) || [""])[0];
+  const strip = d => bare(d).replace(/\s?[AP]M$/i, "").trim();
+  return mer(a) && mer(a) === mer(b)
+    ? `${strip(a)}\u2013${strip(b)} ${mer(a)}`
+    : `${bare(a)}\u2013${bare(b)}`;
+}
+
+function dayName(d) {
+  const today = new Date();
+  const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate())
+              - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  return d.toLocaleDateString([], { weekday: "long" });
+}
+
+/** Piecewise-linear interpolation through CONFIG.curve. */
+function curveScore(kn) {
+  const c = CONFIG.curve;
+  if (kn <= c[0][0]) return c[0][1];
+  for (let i = 1; i < c.length; i++) {
+    if (kn <= c[i][0]) {
+      const [x0, y0] = c[i - 1], [x1, y1] = c[i];
+      return y0 + (y1 - y0) * (kn - x0) / (x1 - x0);
+    }
+  }
+  return 0;
+}
+
+const bandFor = score => CONFIG.bands.find(b => score >= b.min) || CONFIG.bands.at(-1);
+
+/** Inverse of curveScore: the effective wind at which the score drops to `s`. */
+function windForScore(s) {
+  const c = CONFIG.curve;
+  for (let i = 1; i < c.length; i++) {
+    const [x0, y0] = c[i - 1], [x1, y1] = c[i];
+    if (s <= y0 && s >= y1) return x0 + (x1 - x0) * (y0 - s) / (y0 - y1);
+  }
+  return s > c[0][1] ? c[0][0] : c.at(-1)[0];
+}
+
+/* ============================================================================
+ * FETCH LAYER
+ *
+ * Five requests, all keyless and all CORS-open, fired together. Only the
+ * forecast is load-bearing: everything else degrades to "unavailable".
+ * ==========================================================================*/
+const noaa = (params) =>
+  "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?" +
+  new URLSearchParams({ application: "rowable-seekonk", format: "json",
+                        time_zone: "lst_ldt", units: "english", ...params });
+
+async function getJSON(url) {
+  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!r.ok) throw new Error(`HTTP ${r.status} for ${new URL(url).host}`);
+  return r.json();
+}
+
+function forecastURL() {
+  const p = new URLSearchParams({
+    latitude: CONFIG.forecastPt.lat,
+    longitude: CONFIG.forecastPt.lon,
+    hourly: ["temperature_2m","apparent_temperature","precipitation_probability",
+             "weather_code","visibility","cape","wind_speed_10m",
+             "wind_direction_10m","wind_gusts_10m"].join(","),
+    daily: "sunrise,sunset",
+    wind_speed_unit: "kn",
+    temperature_unit: "fahrenheit",
+    precipitation_unit: "inch",
+    timezone: "America/New_York",
+    forecast_days: CONFIG.forecastDays,
+  });
+  return "https://api.open-meteo.com/v1/forecast?" + p;
+}
+
+function tideDateRange() {
+  const pad = n => String(n).padStart(2, "0");
+  const stamp = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const from = new Date(Date.now() - 86400000);       // yesterday, for slope at hour 0
+  const to   = new Date(Date.now() + 86400000 * 4);
+  return { begin_date: stamp(from), end_date: stamp(to) };
+}
+
+async function loadAll() {
+  const range = tideDateRange();
+  const jobs = {
+    forecast: getJSON(forecastURL()),
+    hilo: getJSON(noaa({ product: "predictions", datum: "MLLW",
+                         station: CONFIG.tideStation.id, interval: "hilo", ...range })),
+    curve: getJSON(noaa({ product: "predictions", datum: "MLLW",
+                          station: CONFIG.tideStation.id, interval: "h", ...range })),
+    wind: getJSON(noaa({ product: "wind", station: CONFIG.obsStation.id, date: "latest" })),
+    watertemp: getJSON(noaa({ product: "water_temperature",
+                              station: CONFIG.obsStation.id, date: "latest" })),
+  };
+  const keys = Object.keys(jobs);
+  const settled = await Promise.allSettled(keys.map(k => jobs[k]));
+  const out = {};
+  keys.forEach((k, i) => {
+    out[k] = settled[i].status === "fulfilled" ? settled[i].value : null;
+    if (settled[i].status === "rejected") console.warn(`[rowable] ${k} failed:`, settled[i].reason);
+  });
+  if (!out.forecast) throw new Error("Could not reach the wind forecast service.");
+  return out;
+}
+
+/* ============================================================================
+ * NORMALISE
+ * ==========================================================================*/
+function normaliseForecast(f) {
+  const h = f.hourly, rows = [];
+  for (let i = 0; i < h.time.length; i++) {
+    const t = parseLocal(h.time[i]);
+    if (!t) continue;
+    rows.push({
+      t,
+      wind: h.wind_speed_10m[i],
+      gust: h.wind_gusts_10m[i],
+      dir:  h.wind_direction_10m[i],
+      temp: h.temperature_2m[i],
+      feels: h.apparent_temperature?.[i],
+      pop:  h.precipitation_probability[i],
+      code: h.weather_code[i],
+      vis:  h.visibility[i],
+      cape: h.cape[i],
+    });
+  }
+  const sun = (f.daily?.time || []).map((d, i) => ({
+    key: dayKey(parseLocal(d + "T12:00")),
+    sunrise: parseLocal(f.daily.sunrise[i]),
+    sunset:  parseLocal(f.daily.sunset[i]),
+  }));
+  return { rows, sun };
+}
+
+function normaliseTides(hilo, curveJson) {
+  const extremes = (hilo?.predictions || []).map(p => ({
+    t: parseLocal(p.t), ft: parseFloat(p.v), kind: p.type === "H" ? "high" : "low",
+  })).filter(x => x.t);
+  const curve = (curveJson?.predictions || []).map(p => ({
+    t: parseLocal(p.t), ft: parseFloat(p.v),
+  })).filter(x => x.t).sort((a, b) => a.t - b.t);
+  return { extremes, curve };
+}
+
+function latestObs(json, pick) {
+  const d = json?.data?.[0];
+  if (!d) return null;
+  const v = pick(d);
+  return v && Number.isFinite(v.value ?? v) ? { ...(typeof v === "object" ? v : { value: v }),
+                                                t: parseLocal(d.t) } : null;
+}
+
+/* ============================================================================
+ * THE TIDE / CURRENT MODEL
+ *
+ * There is no current-prediction station on the Seekonk, so we infer the
+ * current from the rate of change of predicted height at Rumford:
+ *
+ *   rising water  -> flood -> current sets UPRIVER   (heading ~010)
+ *   falling water -> ebb   -> current sets DOWNRIVER (heading ~190)
+ *
+ * Strength is |dh/dt| normalised against the strongest slope in the window,
+ * which peaks near mid-tide and goes to zero at the turns. That is the real
+ * shape of a tidal current, so it is a good proxy without harmonic data.
+ * ==========================================================================*/
+function buildTideModel(curve) {
+  if (curve.length < 3) return null;
+  const slopes = curve.map((pt, i) => {
+    const a = curve[Math.max(0, i - 1)], b = curve[Math.min(curve.length - 1, i + 1)];
+    const hours = (b.t - a.t) / 3600000;
+    return hours > 0 ? (b.ft - a.ft) / hours : 0;
+  });
+  const maxAbs = Math.max(...slopes.map(Math.abs)) || 1;
+  return {
+    /** Interpolated height + current state at an arbitrary time. */
+    at(time) {
+      const ms = +time;
+      if (ms <= +curve[0].t || ms >= +curve.at(-1).t) return null;
+      let i = 1;
+      while (i < curve.length && +curve[i].t < ms) i++;
+      const a = curve[i - 1], b = curve[i];
+      const f = (ms - a.t) / (b.t - a.t);
+      const ft = a.ft + (b.ft - a.ft) * f;
+      const slope = slopes[i - 1] + (slopes[i] - slopes[i - 1]) * f;
+      const strength = clamp(Math.abs(slope) / maxAbs, 0, 1);
+      const rising = slope > 0;
+      return {
+        ft,
+        slope,
+        strength,
+        rising,
+        // Heading the WATER is moving toward.
+        heading: rising ? CONFIG.axisDeg : (CONFIG.axisDeg + 180) % 360,
+        state: strength < 0.18 ? "slack" : (rising ? "flood" : "ebb"),
+      };
+    },
+  };
+}
+
+const nextExtreme = (extremes, time) => extremes.find(e => e.t > time) || null;
+
+/* ============================================================================
+ * THE SCORE — pure function of one forecast hour plus context.
+ * ==========================================================================*/
+function scoreHour(row, ctx) {
+  const { tideModel, sunFor, waterTempF } = ctx;
+
+  // 1. Fetch alignment. |cos| of the angle between the wind and the river.
+  const alignment   = Math.abs(Math.cos(rad(row.dir - CONFIG.axisDeg)));
+  const fetchFactor = 1 + CONFIG.fetchBoost * alignment;
+
+  // 2. Effective wind: mean speed scaled by fetch, plus a charge for gustiness.
+  const spread  = Math.max(0, row.gust - row.wind);
+  const effWind = row.wind * fetchFactor + CONFIG.gustWeight * spread;
+
+  // 3. Wind against tide. Wind blows TOWARD dir+180; oppose that to the current.
+  const tide = tideModel ? tideModel.at(row.t) : null;
+  let windTide = 0, opposition = 0;
+  if (tide) {
+    const windHeading = (row.dir + 180) % 360;
+    opposition = Math.max(0, -Math.cos(rad(windHeading - tide.heading)));
+    windTide = CONFIG.windTideMaxKn * opposition * tide.strength
+             * Math.min(1, effWind / CONFIG.windTideRefKn);
+  }
+
+  const totalEff = effWind + windTide;
+  let score = curveScore(totalEff);
+
+  // 4. Flags, caps and hard stops.
+  const flags = [];
+  const cap = (v, msg, level = "warn") => { score = Math.min(score, v); flags.push({ level, msg }); };
+
+  if (WMO_STORM.has(row.code)) {
+    score = 0;
+    flags.push({ level: "stop", msg: "Thunderstorms in the forecast — lightning is a hard no on the water." });
+  }
+  if (row.gust >= CONFIG.gustHardStopKn) {
+    score = Math.min(score, 5);
+    flags.push({ level: "stop", msg: `Gusts to ${spd(row.gust)}. Above ${spd(CONFIG.gustHardStopKn)} nothing else matters.` });
+  }
+  if (!WMO_STORM.has(row.code) && row.cape > CONFIG.capeThreshold && row.pop > CONFIG.popThreshold) {
+    cap(35, `Unstable air (CAPE ${Math.round(row.cape)}, ${row.pop}% precip) — storms could build.`);
+  }
+  if (WMO_HEAVY.has(row.code)) cap(45, "Heavy precipitation.");
+  if (Number.isFinite(row.vis) && row.vis < CONFIG.fogVisM) {
+    cap(40, `Visibility ${(row.vis / 1609).toFixed(1)} mi — you will not see launches or bridge pilings.`);
+  }
+
+  // Cold water: the standard club rule of thumb on air + water temperature.
+  let coldSum = null;
+  if (Number.isFinite(waterTempF) && Number.isFinite(row.temp)) {
+    coldSum = waterTempF + row.temp;
+    if (coldSum < CONFIG.coldSumSevereF) {
+      cap(30, `Air + water is ${Math.round(coldSum)}°F. Immersion is dangerous — do not go out alone.`, "stop");
+    } else if (coldSum < CONFIG.coldSumF) {
+      // Cap as well as flag: flat water on a 46°/50° day is still a day you can
+      // die on, and the headline verdict should never read "Excellent".
+      cap(CONFIG.coldCapScore,
+          `Air + water is ${Math.round(coldSum)}°F, under the ${CONFIG.coldSumF}°F rule. Dress for immersion and stay near shore.`);
+    }
+  }
+
+  // Shallow water upriver near the bottom of the tide. Minor for a shell.
+  if (tide && tide.ft < CONFIG.lowTideFt) {
+    score -= CONFIG.lowTidePenalty;
+    flags.push({ level: "info", msg: `Low water (${tide.ft.toFixed(1)} ft) — the flats upriver get thin.` });
+  }
+
+  // Daylight. Flagged, and excluded from "best window", but not scored down:
+  // plenty of people row before dawn.
+  const sun = sunFor(row.t);
+  let daylight = true;
+  if (sun) {
+    const pad = CONFIG.daylightPadMin * 60000;
+    daylight = +row.t >= +sun.sunrise - pad && +row.t <= +sun.sunset + pad;
+  }
+  if (!daylight) flags.push({ level: "info", msg: "Dark — lights required, and club rules may not allow it." });
+
+  score = clamp(Math.round(score), 0, 100);
+  return {
+    row, score, band: bandFor(score), flags, daylight,
+    alignment, fetchFactor, effWind, windTide, opposition, totalEff, tide, coldSum,
+    blocked: flags.some(f => f.level === "stop"),
+  };
+}
+
+/* ============================================================================
+ * PLAIN-LANGUAGE VERDICT
+ *
+ * The number is never the point — this sentence is. Name the thing that is
+ * actually driving the score.
+ * ==========================================================================*/
+function describe(a) {
+  const stop = a.flags.find(f => f.level === "stop");
+  if (stop) return stop.msg;
+
+  const kn = a.row.wind;             // threshold comparisons stay in knots
+  const shown = spd(kn);             // ...only the display converts
+  const dirName = compass(a.row.dir);
+  const along = a.alignment > 0.7, cross = a.alignment < 0.35;
+  const gusty = a.row.gust - a.row.wind > 7;
+
+  const parts = [];
+  if (kn <= 3) parts.push(`Almost no wind (${shown} ${dirName})`);
+  else if (along) parts.push(`${shown} from the ${dirName}, straight down the reach`);
+  else if (cross) parts.push(`${shown} from the ${dirName}, across the river`);
+  else parts.push(`${shown} from the ${dirName}, quartering the reach`);
+
+  if (gusty) parts.push(`gusting ${spd(a.row.gust, { bare: true })}`);
+
+  let s = parts.join(", ");
+
+  if (a.windTide > 1.5 && a.tide) {
+    s += `, and the ${a.tide.state} is setting against it — expect the chop to stand up`;
+  } else if (a.tide?.state === "slack") {
+    s += ", near slack water";
+  } else if (a.tide && a.alignment > 0.5) {
+    s += `, with the ${a.tide.state} running the same way`;
+  }
+
+  s += ". ";
+  if (a.score >= 85) s += along ? "Still glassy enough for anything." : "Flat — take the single out.";
+  else if (a.score >= 70) s += "Comfortable water for a single.";
+  else if (a.score >= 50) s += "Real chop in the exposed middle, but rowable.";
+  else if (a.score >= 30) s += "Only if you are confident in a single — a wherry or an eight would be fine.";
+  else if (a.score >= 15) s += "Too rough for a small boat.";
+  else s += "Stay in.";
+  return s;
+}
+
+/* ============================================================================
+ * BEST WINDOW — highest-scoring contiguous daylight block in a day.
+ * ==========================================================================*/
+function bestWindow(hours) {
+  const n = CONFIG.windowHours;
+  let best = null;
+  for (let i = 0; i + n <= hours.length; i++) {
+    const block = hours.slice(i, i + n);
+    if (!block.every(h => h.daylight && !h.blocked)) continue;
+    if (!block.every((h, j) => j === 0 || (h.row.t - block[j - 1].row.t) === 3600000)) continue;
+    const mean = block.reduce((s, h) => s + h.score, 0) / n;
+    if (!best || mean > best.mean) {
+      best = { mean: Math.round(mean), from: block[0].row.t, to: new Date(+block.at(-1).row.t + 3600000) };
+    }
+  }
+  return best;
+}
+
+/* ============================================================================
+ * RENDER
+ * ==========================================================================*/
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/** The signature visual: the river as a line, the wind as an arrow across it. */
+function fetchDiagram(a) {
+  const W = 132, H = 132, cx = W / 2, cy = H / 2;
+  // The river drawn at its true bearing, with north up.
+  const ax = rad(CONFIG.axisDeg);
+  const rx = Math.sin(ax) * 52, ry = -Math.cos(ax) * 52;
+  // Wind blows FROM row.dir, so the arrow points toward dir+180.
+  const wf = rad(a.row.dir);
+  const tailX = cx + Math.sin(wf) * 46, tailY = cy - Math.cos(wf) * 46;
+  const headX = cx - Math.sin(wf) * 40, headY = cy + Math.cos(wf) * 40;
+  const col = `var(--${a.band.key})`;
+  return `
+  <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"
+       aria-label="Wind from ${compass(a.row.dir)} relative to the river, which runs ${CONFIG.axisDeg} degrees">
+    <defs>
+      <marker id="wh" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="${col}"/>
+      </marker>
+    </defs>
+    <circle cx="${cx}" cy="${cy}" r="58" fill="none" stroke="var(--line)"/>
+    <text x="${cx}" y="12" text-anchor="middle" font-size="9" fill="var(--ink-3)"
+          font-family="var(--mono)">N</text>
+    <!-- the river -->
+    <line x1="${cx - rx}" y1="${cy - ry}" x2="${cx + rx}" y2="${cy + ry}"
+          stroke="var(--water)" stroke-width="15" stroke-linecap="round" opacity=".5"/>
+    <line x1="${cx - rx}" y1="${cy - ry}" x2="${cx + rx}" y2="${cy + ry}"
+          stroke="var(--water)" stroke-width="2" stroke-linecap="round"/>
+    <!-- the wind -->
+    <line x1="${tailX.toFixed(1)}" y1="${tailY.toFixed(1)}"
+          x2="${headX.toFixed(1)}" y2="${headY.toFixed(1)}"
+          stroke="${col}" stroke-width="3.5" marker-end="url(#wh)"/>
+  </svg>`;
+}
+
+function factorsHTML(a, ctx) {
+  const t = a.tide;
+  const nx = t ? nextExtreme(ctx.tides.extremes, a.row.t) : null;
+  const sun = ctx.sunFor(a.row.t);
+  const alignWord = a.alignment > 0.7 ? "along the reach"
+                  : a.alignment < 0.35 ? "across the river" : "quartering";
+  const coldFlag = a.coldSum != null && a.coldSum < CONFIG.coldSumF;
+
+  const cells = [
+    ["Wind",
+     `${spd(a.row.wind, { bare: true })} <span style="font-size:.8em;color:var(--ink-3)">${spdUnit()}</span> ${compass(a.row.dir)}`,
+     `gusts ${spd(a.row.gust, { bare: true })} · ${alignWord}`, false],
+    ["Tide",
+     t ? `${t.ft.toFixed(1)} ft <span style="font-size:.8em;color:var(--ink-3)">${t.state}</span>` : "—",
+     nx ? `${nx.kind} ${nx.ft.toFixed(1)} ft at ${fmtTime(nx.t)}` : "predictions unavailable", false],
+    ["Air / water",
+     Number.isFinite(ctx.waterTempF)
+       ? `${Math.round(a.row.temp)}° / ${Math.round(ctx.waterTempF)}°`
+       : `${Math.round(a.row.temp)}° / —`,
+     Number.isFinite(ctx.waterTempF) ? `sum ${Math.round(a.coldSum)}°F` : "water temp unavailable",
+     coldFlag],
+    ["Daylight",
+     sun ? `${fmtTime(sun.sunrise)}–${fmtTime(sun.sunset)}` : "—",
+     // The component renders arbitrary hours, not just the current one, so this
+     // note must not say "now".
+     a.daylight ? "in daylight" : "after dark", !a.daylight],
+  ];
+  return `<div class="factors">${cells.map(([k, v, n, flag]) => `
+    <div class="factor">
+      <div class="k">${esc(k)}</div>
+      <div class="v">${v}</div>
+      <div class="n${flag ? " flagged" : ""}">${esc(n)}</div>
+    </div>`).join("")}</div>`;
+}
+
+function realityHTML(ctx) {
+  const w = ctx.obsWind, wt = ctx.obsWaterTemp, now = ctx.now;
+  const fc = ctx.hours.find(h => Math.abs(h.row.t - now) < 3600000 * 1.5);
+  const cell = (k, v, dim) =>
+    `<div><div class="k">${esc(k)}</div><div class="v${dim ? " dim" : ""}">${v}</div></div>`;
+  return `
+  <div class="card">
+    <h2>Reality check · ${esc(CONFIG.obsStation.name)} gauge</h2>
+    <div class="rc">
+      ${w ? cell("Observed wind", `${spd(w.speed)} ${esc(w.dr || compass(w.dir))} <span style="font-size:.8em;color:var(--ink-3)">g ${spd(w.gust, { bare: true })}</span>`)
+          : cell("Observed wind", "unavailable", true)}
+      ${fc ? cell("Forecast, this hour", `${spd(fc.row.wind)} ${compass(fc.row.dir)} <span style="font-size:.8em;color:var(--ink-3)">g ${spd(fc.row.gust, { bare: true })}</span>`)
+           : cell("Forecast, this hour", "—", true)}
+      ${wt ? cell("Water", `${wt.value.toFixed(1)}°F`) : cell("Water", "sensor offline", true)}
+      ${cell("Reading taken", w?.t ? fmtTime(w.t) : "—", !w)}
+    </div>
+    <div class="n" style="font-size:.78rem;color:var(--ink-3);margin-top:11px">
+      The gauge is ~4 km downriver in open water, so it usually reads a little
+      stronger than the sheltered reach. If these two columns disagree badly,
+      trust the gauge.
+    </div>
+  </div>`;
+}
+
+function stripHTML(ctx) {
+  const byDay = new Map();
+  for (const h of ctx.hours) {
+    const k = dayKey(h.row.t);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k).push(h);
+  }
+
+  const days = [...byDay.entries()].map(([k, hours]) => {
+    const best = bestWindow(hours);
+    const bestTxt = best
+      ? `best ${fmtRange(best.from, best.to)} · ${bandFor(best.mean).label.toLowerCase()} (${best.mean})`
+      : "no clear window";
+
+    const cols = hours.map(h => {
+      const pct = clamp(h.score, 3, 100);
+      return `<button class="hour${h.daylight ? "" : " night"}" type="button"
+        data-t="${+h.row.t}" aria-selected="false"
+        title="${fmtTime(h.row.t)} — ${h.band.label} (${h.score})">
+        <span class="bar"><span class="fill" style="height:${pct}%;background:var(--${h.band.key})"></span></span>
+        <span class="lbl">${h.row.t.getHours() % 3 === 0 ? fmtHour(h.row.t) : ""}</span>
+      </button>`;
+    }).join("");
+
+    return `<div class="day">
+      <div class="day-head">
+        <span class="name">${esc(dayName(hours[0].row.t))}</span>
+        <span class="best">${esc(bestTxt)}</span>
+      </div>
+      <div class="hours">${cols}</div>
+      ${tideSparkline(hours, ctx)}
+    </div>`;
+  }).join("");
+
+  return `
+  <div class="card">
+    <h2>Next ${CONFIG.horizonHours} hours</h2>
+    <div class="scroller"><div class="days">${days}</div></div>
+    <div class="legend">
+      ${CONFIG.bands.map(b => `<span><i style="background:var(--${b.key})"></i>${esc(b.label)}</span>`).join("")}
+      <span><i style="background:var(--water)"></i>tide</span>
+      <span><i style="background:var(--night)"></i>dark</span>
+    </div>
+    <div class="detail" id="detail"></div>
+  </div>`;
+}
+
+/** Tide height as a small filled curve under each day's hour columns. */
+function tideSparkline(hours, ctx) {
+  if (!ctx.tideModel) return "";
+  const w = hours.length * 22, h = 26;
+  const pts = hours.map((hr, i) => {
+    const t = ctx.tideModel.at(hr.row.t);
+    return { x: i * 22 + 10, ft: t ? t.ft : null };
+  }).filter(p => p.ft != null);
+  if (pts.length < 2) return "";
+  const lo = 0, hi = 6;   // MLLW range at Rumford is ~0-5.5 ft
+  const y = ft => h - 2 - ((clamp(ft, lo, hi) - lo) / (hi - lo)) * (h - 5);
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)},${y(p.ft).toFixed(1)}`).join("");
+  const area = `${line}L${pts.at(-1).x.toFixed(1)},${h}L${pts[0].x.toFixed(1)},${h}Z`;
+  return `<svg class="tidecurve" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+    <path d="${area}" fill="var(--water-fill)"/>
+    <path d="${line}" fill="none" stroke="var(--water)" stroke-width="1.75" opacity=".9"/>
+  </svg>`;
+}
+
+/** Alert list. Shared so the top card and the selected hour render identically. */
+const alertsHTML = flags => flags.length
+  ? `<div class="alerts">${flags.map(f =>
+      `<div class="alert ${f.level}"><span class="tag">${f.level === "stop" ? "stop" : f.level}</span>` +
+      `<span>${esc(f.msg)}</span></div>`).join("")}</div>`
+  : "";
+
+/**
+ * How the effective wind was arrived at. Keeps the score from being a black box:
+ * measured speed, then each adjustment that was actually applied.
+ */
+function breakdownHTML(a) {
+  const bits = [`<b>${spd(a.row.wind, { decimals: 1 })}</b> measured`];
+  if (a.fetchFactor > 1.01)
+    bits.push(`×${a.fetchFactor.toFixed(2)} fetch (${(a.alignment * 100).toFixed(0)}% along the reach)`);
+  const spread = Math.max(0, a.row.gust - a.row.wind);
+  if (spread > 0.5)
+    bits.push(`+${spd(CONFIG.gustWeight * spread, { decimals: 1, bare: true })} gust`);
+  if (a.windTide > 0.2)
+    bits.push(`+${spd(a.windTide, { decimals: 1, bare: true })} wind-against-tide`);
+  return `<div class="breakdown">${bits.join(" · ")}
+    <span class="arrow">→</span> <b>${spd(a.totalEff, { decimals: 1 })} effective</b></div>`;
+}
+
+/**
+ * The full assessment of one hour: verdict, plain-language reason, alerts, the
+ * factor grid, the wind-vs-river diagram and the score breakdown.
+ *
+ * Used for BOTH the current hour at the top of the page and whichever hour is
+ * selected in the strip, so the two presentations cannot drift apart.
+ * Returns card contents, not the card wrapper.
+ */
+function assessmentHTML(a, ctx, { heading }) {
+  return `
+    <div class="assess-head">
+      <h2>${esc(heading)}</h2>
+      <span class="assess-when">${esc(dayName(a.row.t))} ${esc(fmtTime(a.row.t))}
+        · at the launch off Gano St.</span>
+    </div>
+    <div class="hero-top">
+      <div class="verdict">${esc(a.band.label)}</div>
+      <div class="score">${a.score}/100</div>
+    </div>
+    <div class="reason">${esc(describe(a))}</div>
+    ${alertsHTML(a.flags)}
+    <div class="assess-body">
+      ${factorsHTML(a, ctx)}
+      <div class="fetchwrap">
+        ${fetchDiagram(a)}
+        <div class="caption">
+          The river runs <b>${compass(CONFIG.axisDeg)}–${compass(CONFIG.axisDeg + 180)}</b>;
+          the arrow is the wind. Pointing along the blue line means
+          <b>${CONFIG.reachKm} km of fetch</b> to build chop. Across it means
+          the banks are doing you a favour.
+          ${a.windTide > 1.5 && a.tide
+            ? `<br><br>The <b>${a.tide.state}</b> is running against the wind here.` : ""}
+        </div>
+      </div>
+      ${breakdownHTML(a)}
+    </div>`;
+}
+
+function howHTML() {
+  return `
+  <details class="how">
+    <summary>How this score works</summary>
+    <div class="body">
+      <p>Wind speed alone is a poor predictor on the Seekonk, so the score adjusts
+      it for two things specific to this river.</p>
+
+      <h3>1 · Fetch alignment</h3>
+      <p>The reach runs roughly <code>${CONFIG.axisDeg}°/${(CONFIG.axisDeg + 180) % 360}°</code> — nearly
+      due north — for about ${CONFIG.reachKm} km, but it is only ~${CONFIG.widthM} m wide. A northerly or
+      southerly blows the whole length and builds real waves; an easterly or
+      westerly crosses in seconds and is broken up by the banks. Along-axis wind
+      is treated as up to <b>${Math.round(CONFIG.fetchBoost * 100)}% stronger</b> than the same speed across.</p>
+
+      <h3>2 · Wind against tide</h3>
+      <p>With a ~5.5 ft range the current here is real. There is no current
+      station on the Seekonk, so flood and ebb are inferred from the slope of the
+      predicted height at ${esc(CONFIG.tideStation.name)}: rising water sets upriver,
+      falling water sets down, and the strongest slope is the strongest current.
+      When wind and current oppose, waves steepen — worth up to
+      <b>${spd(CONFIG.windTideMaxKn)}-equivalent</b> of penalty. This is the combination that
+      catches people out and the one a wind-only forecast hides.</p>
+
+      <h3>3 · Gustiness</h3>
+      <p>A gusty ${spd(10)} is harder to sit than a steady ${spd(10, { bare: true })}, so
+      ${Math.round(CONFIG.gustWeight * 100)}% of the gust-over-average spread is added on.</p>
+
+      <h3>Bands</h3>
+      <table class="tbl">
+        <tr><th>Effective wind</th><th>Score</th><th>Verdict</th></tr>
+        ${CONFIG.bands.map((b, i) => {
+          const upper = CONFIG.bands[i - 1];
+          const lo = windForScore(upper ? upper.min : 100);
+          const hi = b.min < 0 ? null : windForScore(b.min);
+          const range = !upper ? `under ${spd(hi)}`
+                      : hi == null ? `over ${spd(lo)}`
+                      : `${spd(lo, { bare: true })}–${spd(hi)}`;
+          return `<tr><td>${esc(range)}</td>
+            <td>${b.min < 0 ? 0 : b.min}${upper ? `–${upper.min - 1}` : "–100"}</td>
+            <td style="color:var(--${b.key})">${esc(b.label)} <span style="color:var(--ink-3)">${esc(b.gloss)}</span></td></tr>`;
+        }).join("")}
+      </table>
+      <p style="margin-top:9px;color:var(--ink-3);font-size:.94em">Those are
+      <i>effective</i> ${spdUnit()}. A real ${spd(10)} straight down the reach works
+      out around ${spd(13.5)} effective; the same ${spd(10)} across the river stays
+      near ${spd(11, { bare: true })}.</p>
+
+      <h3>Hard stops, regardless of score</h3>
+      <p>Thunderstorms · gusts over ${spd(CONFIG.gustHardStopKn)} · air-plus-water temperature
+      below ${CONFIG.coldSumSevereF}°F. Cautions are raised for unstable air, fog under
+      ${(CONFIG.fogVisM / 1609).toFixed(1)} mi, low water under ${CONFIG.lowTideFt} ft, darkness, and
+      air-plus-water under ${CONFIG.coldSumF}°F.</p>
+
+      <h3>Tuned for a single</h3>
+      <p>Thresholds assume a single or double — the most wind-sensitive case. In
+      an eight you can add roughly ${spd(6, { bare: true })}–${spd(8)} to every band. All the constants
+      live in one <code>CONFIG</code> object at the top of this file; if a score
+      disagrees with water you actually rowed, retune it there.</p>
+    </div>
+  </details>`;
+}
+
+function render(ctx) {
+  const a = ctx.current;
+  const app = document.getElementById("app");
+
+  document.getElementById("sub").textContent =
+    `${CONFIG.tideStation.name} tides · ${CONFIG.obsStation.name} gauge · updated ${fmtTime(ctx.now)}`;
+
+  app.innerHTML = `
+    <div class="card assess" style="--band:var(--${a.band.key})">
+      ${assessmentHTML(a, ctx, { heading: "Right now" })}
+    </div>
+
+    ${realityHTML(ctx)}
+    ${stripHTML(ctx)}
+    ${howHTML()}
+
+    <footer class="src">
+      Wind and sun from <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>.
+      Tide predictions for station ${CONFIG.tideStation.id} (${esc(CONFIG.tideStation.name)}) and live
+      observations from station ${CONFIG.obsStation.id} (${esc(CONFIG.obsStation.name)}) via
+      <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=${CONFIG.tideStation.id}"
+         target="_blank" rel="noopener">NOAA CO-OPS</a>.
+      Times shown in your browser's timezone. Heights in feet above MLLW.
+      <br>This is an aid to judgement, not a substitute for it. Look at the water.
+    </footer>`;
+
+  // Hour selection → detail readout.
+  const detail = document.getElementById("detail");
+  const byTime = new Map(ctx.hours.map(h => [+h.row.t, h]));
+  const select = (el) => {
+    app.querySelectorAll(".hour[aria-selected='true']").forEach(n => n.setAttribute("aria-selected", "false"));
+    el.setAttribute("aria-selected", "true");
+    const sel = byTime.get(+el.dataset.t);
+    const isNow = +sel.row.t === +ctx.current.row.t;
+    detail.style.setProperty("--band", `var(--${sel.band.key})`);
+    detail.innerHTML = assessmentHTML(sel, ctx, {
+      heading: isNow ? "Selected hour · now" : "Selected hour",
+    });
+  };
+  app.querySelectorAll(".hour").forEach(el => el.addEventListener("click", () => select(el)));
+  const nowBtn = [...app.querySelectorAll(".hour")]
+    .find(el => +el.dataset.t === +ctx.current.row.t) || app.querySelector(".hour");
+  if (nowBtn) select(nowBtn);
+}
+
+/* ============================================================================
+ * INIT
+ * ==========================================================================*/
+/* The last successful fetch, kept so that switching units re-derives from it
+ * instead of hitting the network again. Scoring is re-run rather than the page
+ * merely re-rendered, because the verdict and alert strings embed speeds and
+ * would otherwise be left in the old unit. */
+let CACHE = null;
+
+/** Normalise, score and render. Pure function of the raw payloads plus a clock. */
+function build(raw, fetchedAt) {
+  const { rows, sun } = normaliseForecast(raw.forecast);
+  const tides = normaliseTides(raw.hilo, raw.curve);
+  const tideModel = buildTideModel(tides.curve);
+
+  const obsWind = latestObs(raw.wind, d => ({
+    speed: parseFloat(d.s), dir: parseFloat(d.d), dr: d.dr, gust: parseFloat(d.g), value: parseFloat(d.s),
+  }));
+  const obsWaterTemp = latestObs(raw.watertemp, d => ({ value: parseFloat(d.v) }));
+  const waterTempF = obsWaterTemp?.value ?? NaN;
+
+  const sunByDay = new Map(sun.map(s => [s.key, s]));
+  const sunFor = t => sunByDay.get(dayKey(t)) || null;
+
+  const now = fetchedAt;
+  const horizonEnd = +now + CONFIG.horizonHours * 3600000;
+  const ctx = { tideModel, tides, sunFor, waterTempF, obsWind, obsWaterTemp, now };
+
+  // Score from the top of the current hour out to the horizon.
+  const startOfHour = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours());
+  ctx.hours = rows
+    .filter(r => +r.t >= +startOfHour && +r.t <= horizonEnd)
+    .map(r => scoreHour(r, ctx));
+
+  if (!ctx.hours.length) throw new Error("The forecast returned no hours in range.");
+  ctx.current = ctx.hours[0];
+
+  render(ctx);
+}
+
+async function main() {
+  const btn = document.getElementById("refresh");
+  btn.setAttribute("aria-busy", "true");
+  try {
+    const raw = await loadAll();
+    CACHE = { raw, at: new Date() };
+    build(CACHE.raw, CACHE.at);
+  } catch (err) {
+    console.error("[rowable]", err);
+    document.getElementById("app").innerHTML =
+      `<div class="msg err">${esc(err.message || "Something went wrong.")}
+       <br><br><span style="color:var(--ink-3)">Check your connection and try Refresh.</span></div>`;
+  } finally {
+    btn.removeAttribute("aria-busy");
+  }
+}
+
+/* ---------------------------------------------------------------- unit toggle */
+function syncUnitButtons() {
+  document.querySelectorAll("#unit button").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.unit === UNIT)));
+}
+
+function setUnit(u) {
+  if (!UNITS[u] || u === UNIT) return;
+  UNIT = u;
+  try { localStorage.setItem(UNIT_KEY, u); } catch { /* private window: fine */ }
+  syncUnitButtons();
+  // Re-derive from the cached payloads; no network, and the timestamp stays
+  // honest about when the data was actually fetched.
+  if (CACHE) build(CACHE.raw, CACHE.at);
+}
+
+document.getElementById("unit").addEventListener("click", e => {
+  const b = e.target.closest("button[data-unit]");
+  if (b) setUnit(b.dataset.unit);
+});
+syncUnitButtons();
+
+document.getElementById("refresh").addEventListener("click", main);
+main();
+</script>
+</body>
+</html>
