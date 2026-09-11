@@ -8,6 +8,13 @@
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f4f6f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1413" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Rowable">
 <style>
   :root {
     --bg: #f4f6f5;
@@ -361,6 +368,24 @@
     line-height: 1.7;
   }
   footer.src a { color: var(--ink-2); }
+
+  /* Offline / stale-data banner. Deliberately loud: the whole risk of an
+     installed app is trusting a cached forecast that is hours out of date. */
+  .stale {
+    display: flex; gap: 11px; align-items: baseline;
+    border-left: 4px solid var(--marginal);
+    background: color-mix(in srgb, var(--marginal) 13%, var(--panel));
+  }
+  .stale .tag {
+    font-family: var(--mono); font-size: .68rem; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--marginal); flex: none; padding-top: 3px;
+  }
+  .stale b { font-weight: 600; }
+  .stale .sub2 { display: block; margin-top: 5px; color: var(--ink-2); font-size: .87rem; }
+
+  /* Installed to the home screen there is no browser chrome, so respect the
+     home-indicator inset at the bottom. */
+  .wrap { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
 
   .msg { padding: 26px 18px; text-align: center; color: var(--ink-3); font-size: .92rem; }
   .msg.err { color: var(--nogo); }
@@ -1170,6 +1195,7 @@ function render(ctx) {
     `${CONFIG.tideStation.name} tides · ${CONFIG.obsStation.name} gauge · updated ${fmtTime(ctx.now)}`;
 
   app.innerHTML = `
+    ${staleHTML(ctx.stale)}
     <div class="card assess" style="--band:var(--${a.band.key})">
       ${assessmentHTML(a, ctx, { heading: "Right now" })}
     </div>
@@ -1210,6 +1236,52 @@ function render(ctx) {
 /* ============================================================================
  * INIT
  * ==========================================================================*/
+/* ---------------------------------------------------------------------------
+ * OFFLINE DATA
+ *
+ * The service worker caches the app shell but never the APIs, so an offline
+ * launch gets a working page with no data. We keep the last successful payload
+ * here instead, and when it is used the page says how old it is.
+ *
+ * The forecast spans ~4 days, so a payload saved a few hours ago still contains
+ * the current hour and the score is still meaningful — but wind can change
+ * completely in an hour, so the age is never hidden.
+ * -------------------------------------------------------------------------*/
+const DATA_KEY = "rowable.lastGood";
+const MAX_STALE_MS = 24 * 3600 * 1000;
+
+function saveLastGood(raw) {
+  try { localStorage.setItem(DATA_KEY, JSON.stringify({ raw, at: Date.now() })); }
+  catch { /* quota or private window: offline fallback is simply unavailable */ }
+}
+
+function loadLastGood() {
+  try {
+    const v = JSON.parse(localStorage.getItem(DATA_KEY) || "null");
+    if (v && v.raw && Date.now() - v.at < MAX_STALE_MS) return v;
+  } catch { /* corrupt entry: ignore it */ }
+  return null;
+}
+
+/** How old the shown data is, in words. */
+function ageWords(since) {
+  const mins = Math.max(0, Math.round((Date.now() - +since) / 60000));
+  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
+  const hrs = Math.round(mins / 60);
+  return `${hrs} hour${hrs === 1 ? "" : "s"} ago`;
+}
+
+function staleHTML(stale) {
+  if (!stale) return "";
+  return `<div class="card stale">
+    <span class="tag">offline</span>
+    <div><b>Showing a forecast saved ${esc(ageWords(stale))}.</b>
+      <span class="sub2">No connection, so this may be well out of date — wind can
+      change completely within the hour. The gauge readings below are from that
+      same moment, not now. Pull up Refresh once you have signal.</span></div>
+  </div>`;
+}
+
 /* The last successful fetch, kept so that switching units re-derives from it
  * instead of hitting the network again. Scoring is re-run rather than the page
  * merely re-rendered, because the verdict and alert strings embed speeds and
@@ -1217,7 +1289,7 @@ function render(ctx) {
 let CACHE = null;
 
 /** Normalise, score and render. Pure function of the raw payloads plus a clock. */
-function build(raw, fetchedAt) {
+function build(raw, fetchedAt, stale = null) {
   const { rows, sun } = normaliseForecast(raw.forecast);
   const tides = normaliseTides(raw.hilo, raw.curve);
   const tideModel = buildTideModel(tides.curve);
@@ -1233,7 +1305,7 @@ function build(raw, fetchedAt) {
 
   const now = fetchedAt;
   const horizonEnd = +now + CONFIG.horizonHours * 3600000;
-  const ctx = { tideModel, tides, sunFor, waterTempF, obsWind, obsWaterTemp, now };
+  const ctx = { tideModel, tides, sunFor, waterTempF, obsWind, obsWaterTemp, now, stale };
 
   // Score from the top of the current hour out to the horizon.
   const startOfHour = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours());
@@ -1252,10 +1324,23 @@ async function main() {
   btn.setAttribute("aria-busy", "true");
   try {
     const raw = await loadAll();
-    CACHE = { raw, at: new Date() };
-    build(CACHE.raw, CACHE.at);
+    CACHE = { raw, at: new Date(), stale: null };
+    saveLastGood(raw);
+    build(CACHE.raw, CACHE.at, null);
   } catch (err) {
     console.error("[rowable]", err);
+    // Offline: fall back to the last payload we stored, scored against the real
+    // current time (the forecast still covers it) and clearly labelled as old.
+    const last = loadLastGood();
+    if (last) {
+      try {
+        CACHE = { raw: last.raw, at: new Date(), stale: new Date(last.at) };
+        build(CACHE.raw, CACHE.at, CACHE.stale);
+        return;
+      } catch (e2) {
+        console.warn("[rowable] saved data no longer usable:", e2);
+      }
+    }
     document.getElementById("app").innerHTML =
       `<div class="msg err">${esc(err.message || "Something went wrong.")}
        <br><br><span style="color:var(--ink-3)">Check your connection and try Refresh.</span></div>`;
@@ -1277,7 +1362,7 @@ function setUnit(u) {
   syncUnitButtons();
   // Re-derive from the cached payloads; no network, and the timestamp stays
   // honest about when the data was actually fetched.
-  if (CACHE) build(CACHE.raw, CACHE.at);
+  if (CACHE) build(CACHE.raw, CACHE.at, CACHE.stale);
 }
 
 document.getElementById("unit").addEventListener("click", e => {
@@ -1288,6 +1373,15 @@ syncUnitButtons();
 
 document.getElementById("refresh").addEventListener("click", main);
 main();
+
+/* Service worker: caches the shell so the home-screen icon opens instantly and
+ * works with no signal. Needs a secure context, so it is skipped on file://. */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(err =>
+      console.warn("[rowable] service worker did not register:", err));
+  });
+}
 </script>
 </body>
 </html>

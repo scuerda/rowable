@@ -102,18 +102,50 @@ gone wrong.
 Only the wind forecast is load-bearing. If a NOAA feed is down the page still
 renders and marks those fields unavailable.
 
+## Installing it on your phone
+
+It is a PWA, so it installs to the home screen and opens without browser chrome.
+
+**iOS (Safari):** open the page, tap Share, then **Add to Home Screen**. It must be
+Safari — Chrome on iOS cannot install PWAs. It appears as "Rowable".
+
+**Android (Chrome):** open the page and take the **Install app** prompt, or use the
+⋮ menu → *Add to Home screen*.
+
+### What works without a connection
+
+The service worker caches the app shell, so the icon opens instantly and still
+opens with no signal. It deliberately **does not** cache the weather or tide APIs —
+a service worker quietly serving a three-hour-old forecast as though it were live
+is exactly the wrong behaviour for something you use to decide whether to go out
+on the water.
+
+Instead the page saves the last payload it successfully fetched. If you open it
+with no signal it scores that data against the real current time — the forecast
+spans about four days, so the present hour is still in there — and shows a loud
+banner saying how old it is. Past 24 hours the saved copy is discarded and you get
+a plain error rather than a stale guess. The gauge readings keep their own
+"reading taken" timestamp, so those never masquerade as current either.
+
+In short: offline gets you a real answer with its age attached, never a confident
+wrong one.
+
 ## Publishing it for your phone
 
 Any static host works. With GitHub Pages:
 
 ```sh
-git init && git add index.html README.md
-git commit -m "Rowable: Seekonk River conditions"
-gh repo create rowable --public --source=. --push
-gh api -X POST repos/:owner/rowable/pages -f source[branch]=main -f source[path]=/
+git add -A && git commit -m "Rowable" && git push
+gh api -X POST repos/:owner/rowable/pages \
+  -f 'source[branch]=main' -f 'source[path]=/'
 ```
 
-Then it is at `https://<you>.github.io/rowable/`. Add it to your home screen.
+Live at `https://<you>.github.io/rowable/`. HTTPS is required for the service
+worker, which GitHub Pages provides. Pushing to `main` rebuilds in under a minute,
+and because the shell is cached network-first the next launch picks up the change.
+
+**After editing `sw.js`, bump its `VERSION` constant** — that is what evicts the
+old cache. Editing `index.html` alone needs no bump.
 
 ## Caveat
 
